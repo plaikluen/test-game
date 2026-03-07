@@ -353,6 +353,7 @@
   let lastPhase = '';
   let cachedRoomData = null;
   let isResolving = false;
+  let lastResetTurn = 0;
 
   // ===== SCREEN MANAGEMENT =====
   function showScreen(id) {
@@ -638,9 +639,10 @@
     renderChoiceButtons(me, data);
 
     if (data.phase === 'action') {
-      if (lastPhase === 'resolving') {
+      if (data.turn !== lastResetTurn) {
         hasSentAction = false;
         isResolving = false;
+        lastResetTurn = data.turn;
       }
       var canAct = me && me.hp > 0 && !hasSentAction;
       setButtons(canAct);
@@ -829,6 +831,7 @@
     lastLogCount = 0;
     hasSentAction = false;
     isResolving = false;
+    lastResetTurn = 0;
     document.getElementById('battleLog').innerHTML = '';
 
     roomRef.child('players').once('value', function(snap) {
