@@ -352,6 +352,7 @@
   let hasSentAction = false;
   let lastPhase = '';
   let cachedRoomData = null;
+  let isResolving = false;
 
   // ===== SCREEN MANAGEMENT =====
   function showScreen(id) {
@@ -639,6 +640,7 @@
     if (data.phase === 'action') {
       if (lastPhase === 'resolving') {
         hasSentAction = false;
+        isResolving = false;
       }
       var canAct = me && me.hp > 0 && !hasSentAction;
       setButtons(canAct);
@@ -650,7 +652,8 @@
         ? 'รอผู้เล่นคนอื่น... (' + actedCount + '/' + aliveCount + ')'
         : 'เทิร์นที่ ' + data.turn + ' — เลือกแอคชั่น';
 
-      if (isHost && aliveCount > 0 && actedCount >= aliveCount) {
+      if (isHost && aliveCount > 0 && actedCount >= aliveCount && !isResolving) {
+        isResolving = true;
         resolveRound(data);
       }
       document.getElementById('overlay').classList.remove('show');
@@ -825,6 +828,7 @@
     if (!isHost) return;
     lastLogCount = 0;
     hasSentAction = false;
+    isResolving = false;
     document.getElementById('battleLog').innerHTML = '';
 
     roomRef.child('players').once('value', function(snap) {
