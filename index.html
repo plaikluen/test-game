@@ -354,6 +354,8 @@
   let cachedRoomData = null;
   let isResolving = false;
   let lastResetTurn = 0;
+  let pendingAction = null;
+  let pendingHealTarget = null;
 
   // ===== SCREEN MANAGEMENT =====
   function showScreen(id) {
@@ -456,6 +458,7 @@
       hp: PLAYER_MAX_HP,
       maxHp: PLAYER_MAX_HP,
       action: null,
+      actionTurn: null,
       healTarget: null,
       defending: false,
       alive: true,
@@ -485,6 +488,7 @@
       snap.forEach(function(child) {
         updates[child.key + '/hp'] = PLAYER_MAX_HP;
         updates[child.key + '/action'] = null;
+        updates[child.key + '/actionTurn'] = null;
         updates[child.key + '/healTarget'] = null;
         updates[child.key + '/defending'] = false;
         updates[child.key + '/alive'] = true;
@@ -542,11 +546,23 @@
   function selectHealTarget(targetId) {
     closeHealPicker();
     if (hasSentAction) return;
+    var turnNow = cachedRoomData ? cachedRoomData.turn : null;
+    pendingAction = 'heal';
+    pendingHealTarget = targetId;
     hasSentAction = true;
     setButtons(false);
     roomRef.child('players/' + myId).update({
       action: 'heal',
+      actionTurn: turnNow,
       healTarget: targetId
+    }, function(err) {
+      if (err) {
+        hasSentAction = false;
+        pendingAction = null;
+        pendingHealTarget = null;
+        setButtons(true);
+        document.getElementById('turnIndicator').textContent = 'ส่งแอคชั่นไม่สำเร็จ ลองใหม่อีกครั้ง';
+      }
     });
     document.getElementById('turnIndicator').textContent = 'รอผู้เล่นคนอื่น...';
   }
@@ -642,14 +658,34 @@
       if (data.turn !== lastResetTurn) {
         hasSentAction = false;
         isResolving = false;
+        pendingAction = null;
+        pendingHealTarget = null;
         lastResetTurn = data.turn;
       }
+
+      if (me && me.action != null) {
+        pendingAction = null;
+        pendingHealTarget = null;
+      }
+
       var canAct = me && me.hp > 0 && !hasSentAction;
       setButtons(canAct);
 
       var players = data.players || {};
       var aliveCount = Object.values(players).filter(function(p) { return p.hp > 0; }).length;
-      var actedCount = Object.values(players).filter(function(p) { return p.hp > 0 && p.action != null; }).length;
+      var actedCount = Object.values(players).filter(function(p) {
+        return p.hp > 0 && p.action != null && p.actionTurn === data.turn;
+      }).length;
+
+      // Fallback for solo rooms: if local action was chosen but Firebase snapshot is still stale,
+      // inject pending action into the host-side snapshot so round resolution can continue.
+      if (isHost && aliveCount === 1 && me && me.hp > 0 && me.action == null && hasSentAction && pendingAction) {
+        me.action = pendingAction;
+        me.actionTurn = data.turn;
+        if (pendingAction === 'heal') me.healTarget = pendingHealTarget || myId;
+        actedCount = 1;
+      }
+
       document.getElementById('turnIndicator').textContent = hasSentAction
         ? 'รอผู้เล่นคนอื่น... (' + actedCount + '/' + aliveCount + ')'
         : 'เทิร์นที่ ' + data.turn + ' — เลือกแอคชั่น';
@@ -696,9 +732,22 @@
   // ===== SEND ACTION =====
   function sendAction(action) {
     if (hasSentAction) return;
+    var turnNow = cachedRoomData ? cachedRoomData.turn : null;
+    pendingAction = action;
+    pendingHealTarget = null;
     hasSentAction = true;
     setButtons(false);
-    roomRef.child('players/' + myId + '/action').set(action);
+    roomRef.child('players/' + myId).update({
+      action: action,
+      actionTurn: turnNow
+    }, function(err) {
+      if (err) {
+        hasSentAction = false;
+        pendingAction = null;
+        setButtons(true);
+        document.getElementById('turnIndicator').textContent = 'ส่งแอคชั่นไม่สำเร็จ ลองใหม่อีกครั้ง';
+      }
+    });
     document.getElementById('turnIndicator').textContent = 'รอผู้เล่นคนอื่น...';
   }
 
@@ -757,6 +806,7 @@
         }
       }
       updates[id + '/action'] = null;
+      updates[id + '/actionTurn'] = null;
       updates[id + '/healTarget'] = null;
 
       // Decrease cooldown
@@ -832,6 +882,8 @@
     hasSentAction = false;
     isResolving = false;
     lastResetTurn = 0;
+    pendingAction = null;
+    pendingHealTarget = null;
     document.getElementById('battleLog').innerHTML = '';
 
     roomRef.child('players').once('value', function(snap) {
@@ -839,6 +891,7 @@
       snap.forEach(function(child) {
         updates[child.key + '/hp'] = PLAYER_MAX_HP;
         updates[child.key + '/action'] = null;
+        updates[child.key + '/actionTurn'] = null;
         updates[child.key + '/healTarget'] = null;
         updates[child.key + '/defending'] = false;
         updates[child.key + '/alive'] = true;
