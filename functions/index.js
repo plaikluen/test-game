@@ -32,16 +32,16 @@ exports.registerPlayer = onCall(async (req) => {
 	if (current.used === true) {
 		throw new HttpsError("permission-denied", "ID already used");
 	}
+	const usedRef = allowRef.child("used");
+	const usedAtRef = allowRef.child("usedAt");
 
-	const tx = await allowRef.transaction((row) => {
-		if (!row) return;
-		if (row.used) return;
-		return {
-			...row,
-			used: true,
-			usedAt: Date.now(),
-		};
+	const tx = await usedRef.transaction((used) => {
+		if (used === true) return;
+		return true;
 	});
+	if (tx.committed) {
+		await usedAtRef.set(Date.now());
+	}
 
 	if (!tx.committed || !tx.snapshot.exists()) {
 		try {
