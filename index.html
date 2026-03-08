@@ -277,6 +277,7 @@
   <div class="btn-row">
     <button onclick="createRoom()">สร้างห้อง</button>
     <button onclick="showJoin()">เข้าร่วม</button>
+    <button onclick="logout()">ออกจากระบบ</button>
   </div>
   <div id="joinArea" style="display:none;">
     <input type="text" id="roomInput" placeholder="รหัสห้อง (4 ตัว)" maxlength="4" style="text-transform:uppercase;">
@@ -504,6 +505,30 @@
   // ===== 3) LOBBY =====
   function showJoin() {
     document.getElementById('joinArea').style.display = '';
+  }
+
+  function logout() {
+    if (roomRef) {
+      roomRef.off();
+    }
+    roomRef = null;
+    roomId = null;
+    isHost = false;
+    myName = '';
+    myClass = '';
+    selectedClass = '';
+    cachedRoomData = null;
+    hasSentAction = false;
+    pendingAction = null;
+    pendingHealTarget = null;
+    lastLogCount = 0;
+    document.getElementById('battleLog').innerHTML = '';
+    document.getElementById('joinArea').style.display = 'none';
+    document.getElementById('roomDisplay').style.display = 'none';
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('gameContainer').classList.remove('active');
+    auth.signOut();
   }
 
   function createRoom() {
