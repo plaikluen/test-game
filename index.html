@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boss Fight! — Multiplayer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans Thai', sans-serif;
+    background: #111;
+    color: #eee;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; text-align: center; flex-direction: column; align-items: center; gap: 12px; }
+  .screen.active { display: flex; }
+
+  /* ===== LOGIN ===== */
+  #loginScreen h1 { font-size: 1.5rem; font-weight: 700; }
+  #loginScreen .sub { font-size: 0.8rem; color: #666; margin-bottom: 8px; }
+  .google-btn {
+    padding: 12px 28px; border: 1px solid #444; border-radius: 8px;
+    background: #1a1a1a; color: #ccc; font-size: 0.95rem; font-weight: 600;
+    font-family: 'Noto Sans Thai', sans-serif; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .google-btn:hover { background: #2a2a2a; }
+  .google-btn img { width: 20px; height: 20px; }
+  .auth-input {
+    padding: 10px 16px; border: 1px solid #333; border-radius: 8px;
+    background: #1a1a1a; color: #eee; font-size: 0.95rem;
+    font-family: 'Noto Sans Thai', sans-serif; width: 260px;
+  }
+  .auth-input::placeholder { color: #555; }
+  .auth-row { display: flex; gap: 8px; }
+
+  /* ===== SETUP ===== */
+  #setupScreen h2 { font-size: 1.2rem; font-weight: 700; }
+  #setupScreen .sub { font-size: 0.78rem; color: #666; }
+  .setup-input {
+    padding: 10px 16px; border: 1px solid #333; border-radius: 8px;
+    background: #1a1a1a; color: #eee; font-size: 1rem;
+    font-family: 'Noto Sans Thai', sans-serif; width: 220px; text-align: center;
+  }
+  .setup-input::placeholder { color: #555; }
+  .class-select { display: flex; gap: 12px; margin-top: 4px; }
+  .class-card {
+    padding: 16px 20px; border: 2px solid #333; border-radius: 12px;
+    background: #1a1a1a; cursor: pointer; width: 140px; transition: border-color 0.2s, background 0.2s;
+  }
+  .class-card:hover { background: #222; }
+  .class-card.selected { border-color: #7ab8d9; background: #1a2530; }
+  .class-card .class-icon { font-size: 2rem; display: block; margin-bottom: 4px; }
+  .class-card .class-name { font-size: 0.95rem; font-weight: 700; color: #ddd; }
+  .class-card .class-desc { font-size: 0.68rem; color: #777; margin-top: 4px; }
+  .confirm-btn {
+    padding: 10px 32px; border: 1px solid #444; border-radius: 8px;
+    background: #1a1a1a; color: #ccc; font-size: 0.9rem; font-weight: 600;
+    font-family: 'Noto Sans Thai', sans-serif; cursor: pointer; margin-top: 4px;
+  }
+  .confirm-btn:hover { background: #2a2a2a; }
+  .confirm-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* ===== LOBBY ===== */
+  .lobby h1 { font-size: 1.5rem; font-weight: 700; }
+  .lobby .sub { font-size: 0.8rem; color: #666; }
+  .lobby input {
+    padding: 10px 16px; border: 1px solid #333; border-radius: 8px;
+    background: #1a1a1a; color: #eee; font-size: 1rem;
+    font-family: 'Noto Sans Thai', sans-serif; width: 220px; text-align: center;
+  }
+  .lobby input::placeholder { color: #555; }
+  .lobby .btn-row { display: flex; gap: 8px; }
+  .lobby button {
+    padding: 10px 24px; border: 1px solid #444; border-radius: 8px;
+    background: #1a1a1a; color: #ccc; font-size: 0.9rem; font-weight: 600;
+    font-family: 'Noto Sans Thai', sans-serif; cursor: pointer;
+  }
+  .lobby button:hover { background: #2a2a2a; }
+  .lobby .room-code {
+    font-size: 2rem; font-weight: 900; letter-spacing: 8px;
+    color: #7ab8d9; margin: 4px 0;
+  }
+  .lobby .player-list { font-size: 0.82rem; color: #888; min-height: 18px; }
+
+  /* ===== GAME ===== */
+  .game-container {
+    width: 100%; max-width: 700px; height: 100vh;
+    padding: 12px 20px; display: none;
+    flex-direction: column; justify-content: center;
+  }
+  .game-container.active { display: flex; }
+
+  .boss-area { text-align: center; position: relative; margin-bottom: 8px; }
+  .boss-name { font-size: 1.2rem; font-weight: 700; color: #e8e8e8; margin-bottom: 4px; letter-spacing: 1px; }
+  .hp-bars { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+  .hp-bar-wrapper { flex: 1; max-width: 150px; height: 10px; background: #222; border-radius: 5px; overflow: hidden; }
+  .hp-bar-fill { height: 100%; background: #e05555; border-radius: 5px; transition: width 0.5s ease; }
+  .hp-bar-wrapper.empty .hp-bar-fill { width: 0% !important; }
+  .hp-text { font-size: 0.78rem; color: #999; margin-bottom: 6px; }
+  .boss-img-container { position: relative; width: 100%; }
+  .boss-img { width: 100%; height: auto; object-fit: contain; transition: filter 0.2s, transform 0.15s; }
+  .boss-img.hit { filter: brightness(2.5); transform: scale(1.03); }
+  .boss-img.attacking { animation: bossAttack 0.4s ease; }
+  @keyframes bossAttack {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.15) translateY(-10px); }
+    60% { transform: scale(1.1) translateY(5px); }
+    100% { transform: scale(1); }
+  }
+
+  /* Players panel (top-left) */
+  .players-panel {
+    position: fixed; top: 16px; left: 16px;
+    background: #1a1a1a; border-radius: 10px; padding: 10px 14px;
+    border: 1px solid #2a2a2a; width: 260px; z-index: 10;
+    max-height: 220px; overflow-y: auto;
+  }
+  .players-panel-title { font-size: 0.78rem; color: #555; margin-bottom: 6px; }
+  .player-entry { margin-bottom: 5px; }
+  .pe-header { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 2px; }
+  .pe-name { color: #aaa; font-weight: 600; }
+  .pe-name.me { color: #7ab8d9; }
+  .pe-name.dead { color: #555; text-decoration: line-through; }
+  .pe-hp { color: #666; font-size: 0.7rem; }
+  .pe-bar { width: 100%; height: 5px; background: #222; border-radius: 3px; overflow: hidden; }
+  .pe-fill { height: 100%; background: #4caf80; border-radius: 3px; transition: width 0.5s; }
+  .pe-fill.low { background: #b09555; }
+  .pe-fill.critical { background: #b05555; }
+  .pe-fill.dead { background: #333; }
+  .pe-status { font-size: 0.65rem; color: #555; margin-top: 1px; }
+  .pe-class { font-size: 0.6rem; color: #666; }
+
+  /* Battle log (top-right) */
+  .battle-log {
+    position: fixed; top: 16px; right: 16px;
+    background: #161616; border-radius: 8px; padding: 8px 12px;
+    width: 280px; max-height: 220px; overflow-y: auto;
+    border: 1px solid #222; z-index: 10;
+  }
+  .log-entry { font-size: 0.72rem; padding: 2px 0; border-bottom: 1px solid #1e1e1e; animation: fadeIn 0.3s ease; }
+  .log-entry.player-action { color: #7ab8d9; }
+  .log-entry.boss-action { color: #d97a7a; }
+  .log-entry.heal-action { color: #7ad99a; }
+  .log-entry.info { color: #666; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Choices */
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; position: relative; }
+  .choice-btn {
+    padding: 12px 10px; border: 1px solid #333; border-radius: 10px;
+    font-size: 0.9rem; font-weight: 600; font-family: 'Noto Sans Thai', sans-serif;
+    cursor: pointer; transition: transform 0.12s, background 0.2s; color: #ddd;
+  }
+  .choice-btn:hover { transform: translateY(-2px); }
+  .choice-btn:active { transform: scale(0.97); }
+  .choice-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+  .btn-attack { background: #2a1518; border-color: #4a2530; }
+  .btn-attack:hover:not(:disabled) { background: #3a2028; }
+  .btn-defend { background: #151a2a; border-color: #25354a; }
+  .btn-defend:hover:not(:disabled) { background: #1e2538; }
+  .btn-heal { background: #152a1a; border-color: #254a30; }
+  .btn-heal:hover:not(:disabled) { background: #1e3825; }
+  .btn-idle { background: #2a2515; border-color: #4a4025; }
+  .btn-idle:hover:not(:disabled) { background: #38301e; }
+  .btn-special { background: #2a1a2a; border-color: #4a2550; }
+  .btn-special:hover:not(:disabled) { background: #3a2240; }
+  .choice-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+  .cooldown-text { font-size: 0.65rem; color: #888; }
+
+  .turn-indicator { text-align: center; font-size: 0.75rem; color: #444; margin-bottom: 8px; }
+
+  /* Heal target picker */
+  .heal-picker {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85); z-index: 500;
+    justify-content: center; align-items: center; flex-direction: column;
+  }
+  .heal-picker.show { display: flex; }
+  .heal-picker-title { font-size: 1rem; font-weight: 600; margin-bottom: 12px; color: #7ad99a; }
+  .heal-picker-list { display: flex; flex-direction: column; gap: 8px; min-width: 220px; }
+  .heal-target-btn {
+    padding: 10px 16px; border: 1px solid #254a30; border-radius: 8px;
+    background: #152a1a; color: #ddd; font-size: 0.85rem; font-weight: 600;
+    font-family: 'Noto Sans Thai', sans-serif; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .heal-target-btn:hover { background: #1e3825; }
+  .heal-target-hp { font-size: 0.72rem; color: #888; }
+  .heal-cancel-btn {
+    margin-top: 12px; padding: 8px 24px; border: 1px solid #444; border-radius: 8px;
+    background: #1a1a1a; color: #999; font-size: 0.8rem; cursor: pointer;
+    font-family: 'Noto Sans Thai', sans-serif;
+  }
+
+  /* Damage popup */
+  .damage-popup {
+    position: fixed; font-weight: 700; font-size: 1.4rem;
+    pointer-events: none; animation: floatUp 1s ease forwards; z-index: 100;
+  }
+  .damage-popup.dmg { color: #d97a7a; }
+  .damage-popup.heal { color: #7ad99a; }
+  .damage-popup.block { color: #7a9ad9; }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    70% { opacity: 1; transform: translateY(-60px) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-90px) scale(0.8); }
+  }
+
+  /* Overlay */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    display: none; justify-content: center; align-items: center;
+    flex-direction: column; z-index: 999;
+  }
+  .overlay.show { display: flex; }
+  .overlay h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 12px; }
+  .overlay h1.win { color: #d4c86a; }
+  .overlay h1.lose { color: #d97a7a; }
+  .overlay .stats { font-size: 0.9rem; color: #666; margin-bottom: 20px; text-align: center; }
+  .restart-btn {
+    padding: 10px 32px; border: 1px solid #444; border-radius: 8px;
+    background: #1a1a1a; color: #ccc; font-size: 0.95rem; font-weight: 600;
+    font-family: 'Noto Sans Thai', sans-serif; cursor: pointer;
+  }
+  .restart-btn:hover { background: #2a2a2a; }
+</style>
+</head>
+<body>
+
+<!-- 1) LOGIN -->
+<div class="screen active" id="loginScreen">
+  <h1>⚔ Boss Fight — Multiplayer</h1>
+  <div class="sub">เข้าสู่ระบบด้วยรหัสผู้เล่น 6 หลัก + รหัสผ่าน</div>
+  <input type="text" class="auth-input" id="loginPlayerId" placeholder="รหัสผู้เล่น 6 หลัก" maxlength="6" inputmode="numeric" autocomplete="username">
+  <input type="password" class="auth-input" id="loginPassword" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
+  <div class="auth-row">
+    <button class="google-btn" onclick="emailLogin()">เข้าสู่ระบบ</button>
+    <button class="google-btn" onclick="registerWithEmail()">สมัครสมาชิก</button>
+  </div>
+  <div class="sub" id="loginStatus"></div>
+</div>
+
+<!-- 2) SETUP (name + class) -->
+<div class="screen" id="setupScreen">
+  <h2>ตั้งค่าตัวละคร</h2>
+  <div class="sub" id="setupEmail"></div>
+  <input type="text" class="setup-input" id="nameInput" placeholder="ตั้งชื่อตัวละคร" maxlength="20">
+  <div class="sub">เลือกคลาส</div>
+  <div class="class-select">
+    <div class="class-card" id="cardAttacker" onclick="selectClass('attacker')">
+      <span class="class-icon">⚔️</span>
+      <div class="class-name">Attacker</div>
+      <div class="class-desc">โจมตีแรง + สกิลพิเศษ x2 ดาเมจ</div>
+    </div>
+    <div class="class-card" id="cardHealer" onclick="selectClass('healer')">
+      <span class="class-icon">💚</span>
+      <div class="class-name">Healer</div>
+      <div class="class-desc">ฮีลเลือดให้เพื่อนร่วมทีมได้</div>
+    </div>
+  </div>
+  <button class="confirm-btn" id="confirmSetup" onclick="confirmSetup()" disabled>ยืนยัน</button>
+</div>
+
+<!-- 3) LOBBY -->
+<div class="screen lobby" id="lobby">
+  <h1>⚔ Boss Fight — Multiplayer</h1>
+  <div class="sub" id="myInfoText"></div>
+  <div class="btn-row">
+    <button onclick="createRoom()">สร้างห้อง</button>
+    <button onclick="showJoin()">เข้าร่วม</button>
+  </div>
+  <div id="joinArea" style="display:none;">
+    <input type="text" id="roomInput" placeholder="รหัสห้อง (4 ตัว)" maxlength="4" style="text-transform:uppercase;">
+    <button onclick="joinRoom()" style="margin-top:8px;">เข้าห้อง</button>
+  </div>
+  <div class="room-code" id="roomDisplay" style="display:none;"></div>
+  <div class="player-list" id="lobbyPlayers"></div>
+  <button id="startBtn" style="display:none;" onclick="startGame()">เริ่มเกม</button>
+  <div class="sub" id="lobbyStatus"></div>
+</div>
+
+<!-- 4) GAME -->
+<div class="game-container" id="gameContainer">
+  <div class="boss-area">
+    <div class="boss-name">พี่มิโกะสุดสวย</div>
+    <div class="hp-text" id="bossHpText">HP: 2000 / 2000</div>
+    <div class="hp-bars">
+      <div class="hp-bar-wrapper" id="hpBar1"><div class="hp-bar-fill" id="hpFill1" style="width:100%"></div></div>
+      <div class="hp-bar-wrapper" id="hpBar2"><div class="hp-bar-fill" id="hpFill2" style="width:100%"></div></div>
+      <div class="hp-bar-wrapper" id="hpBar3"><div class="hp-bar-fill" id="hpFill3" style="width:100%"></div></div>
+    </div>
+    <div class="boss-img-container" id="bossContainer">
+      <img src="image/boss.png" alt="Boss" class="boss-img" id="bossImg">
+    </div>
+  </div>
+
+  <div class="players-panel" id="playersPanel"></div>
+  <div class="battle-log" id="battleLog"></div>
+
+  <div class="turn-indicator" id="turnIndicator">รอผู้เล่น...</div>
+  <div class="choices" id="choicesArea"></div>
+</div>
+
+<!-- HEAL TARGET PICKER -->
+<div class="heal-picker" id="healPicker">
+  <div class="heal-picker-title">💚 เลือกคนที่จะฮีล</div>
+  <div class="heal-picker-list" id="healPickerList"></div>
+  <button class="heal-cancel-btn" onclick="closeHealPicker()">ยกเลิก</button>
+</div>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay">
+  <h1 id="overlayTitle"></h1>
+  <div class="stats" id="overlayStats"></div>
+  <button class="restart-btn" onclick="restartGame()">🔄 เล่นอีกครั้ง</button>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCpw9j2F0XhLJf2lAN-A2DZh2pk7gdCQHs",
+    authDomain: "boss-fight-8806a.firebaseapp.com",
+    databaseURL: "https://boss-fight-8806a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "boss-fight-8806a",
+    storageBucket: "boss-fight-8806a.firebasestorage.app",
+    messagingSenderId: "198605626220",
+    appId: "1:198605626220:web:bdd287ff95e9b440ab7149"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const auth = firebase.auth();
+  const fns = firebase.app().functions('asia-southeast1');
+  const registerPlayerFn = fns.httpsCallable('registerPlayer');
+
+  // ===== CONFIG =====
+  const BOSS_MAX_HP = 2000;
+  const PLAYER_MAX_HP = 300;
+  const SPECIAL_COOLDOWN = 3;
+
+  // ===== LOCAL STATE =====
+  let myId = null;
+  let myName = '';
+  let myClass = '';
+  let roomId = null;
+  let roomRef = null;
+  let isHost = false;
+  let lastLogCount = 0;
+  let hasSentAction = false;
+  let lastPhase = '';
+  let cachedRoomData = null;
+  let isResolving = false;
+  let lastResetTurn = 0;
+  let pendingAction = null;
+  let pendingHealTarget = null;
+
+  // ===== SCREEN MANAGEMENT =====
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+    var el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+
+  // ===== 1) EMAIL/PASSWORD AUTH =====
+  function sanitizePlayerId(id) {
+    return String(id || '').replace(/\D/g, '').slice(0, 6);
+  }
+
+  function idToEmail(playerId) {
+    return playerId + '@player.local';
+  }
+
+  function getAuthForm() {
+    return {
+      playerId: sanitizePlayerId(document.getElementById('loginPlayerId').value),
+      password: document.getElementById('loginPassword').value
+    };
+  }
+
+  function emailLogin() {
+    var form = getAuthForm();
+    if (!/^\d{6}$/.test(form.playerId) || !form.password) {
+      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
+      return;
+    }
+    document.getElementById('loginStatus').textContent = 'กำลังเข้าสู่ระบบ...';
+    auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(err) {
+      document.getElementById('loginStatus').textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + err.message;
+    });
+  }
+
+  function registerWithEmail() {
+    var form = getAuthForm();
+    if (!/^\d{6}$/.test(form.playerId) || !form.password) {
+      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
+      return;
+    }
+    if (form.password.length < 6) {
+      document.getElementById('loginStatus').textContent = 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัว';
+      return;
+    }
+    document.getElementById('loginStatus').textContent = 'กำลังสมัครสมาชิกครั้งแรก...';
+    registerPlayerFn({ playerId: form.playerId, password: form.password }).then(function() {
+      return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password);
+    }).catch(function(err) {
+      var msg = err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
+      document.getElementById('loginStatus').textContent = 'สมัครสมาชิกไม่สำเร็จ: ' + msg;
+    });
+  }
+
+  auth.onAuthStateChanged(function(user) {
+    if (user) {
+      myId = user.uid;
+      var email = user.email || '';
+      var label = email.endsWith('@player.local') ? ('ID: ' + email.replace('@player.local', '')) : email;
+      document.getElementById('setupEmail').textContent = label || 'ไม่ทราบผู้ใช้';
+      showScreen('setupScreen');
+    } else {
+      showScreen('loginScreen');
+    }
+  });
+
+  // ===== 2) SETUP =====
+  let selectedClass = '';
+
+  function selectClass(cls) {
+    selectedClass = cls;
+    document.getElementById('cardAttacker').classList.toggle('selected', cls === 'attacker');
+    document.getElementById('cardHealer').classList.toggle('selected', cls === 'healer');
+    checkSetupReady();
+  }
+
+  document.getElementById('nameInput').addEventListener('input', checkSetupReady);
+
+  function checkSetupReady() {
+    var name = document.getElementById('nameInput').value.trim();
+    document.getElementById('confirmSetup').disabled = !(name && selectedClass);
+  }
+
+  function confirmSetup() {
+    myName = document.getElementById('nameInput').value.trim().slice(0, 20);
+    myClass = selectedClass;
+    if (!myName || !myClass) return;
+    var classLabel = myClass === 'attacker' ? '⚔️ Attacker' : '💚 Healer';
+    document.getElementById('myInfoText').textContent = myName + ' — ' + classLabel;
+    showScreen('lobby');
+  }
+
+  // ===== 3) LOBBY =====
+  function showJoin() {
+    document.getElementById('joinArea').style.display = '';
+  }
+
+  function createRoom() {
+    roomId = generateRoomCode();
+    isHost = true;
+    setupRoom(true);
+  }
+
+  function joinRoom() {
+    roomId = document.getElementById('roomInput').value.trim().toUpperCase();
+    if (roomId.length !== 4) { alert('รหัสห้อง 4 ตัว!'); return; }
+    db.ref('rooms/' + roomId).once('value', function(snap) {
+      if (!snap.exists()) { alert('ไม่พบห้อง ' + roomId); return; }
+      isHost = false;
+      setupRoom(false);
+    });
+  }
+
+  function generateRoomCode() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var code = '';
+    var arr = new Uint32Array(4);
+    crypto.getRandomValues(arr);
+    for (var i = 0; i < 4; i++) code += chars[arr[i] % chars.length];
+    return code;
+  }
+
+  function setupRoom(isNew) {
+    roomRef = db.ref('rooms/' + roomId);
+
+    if (isNew) {
+      roomRef.set({
+        phase: 'lobby',
+        bossHp: BOSS_MAX_HP,
+        bossMaxHp: BOSS_MAX_HP,
+        turn: 1,
+        hostId: myId,
+        logs: [],
+        players: {}
+      });
+    }
+
+    var playerRef = roomRef.child('players/' + myId);
+    playerRef.set({
+      name: myName,
+      class: myClass,
+      hp: PLAYER_MAX_HP,
+      maxHp: PLAYER_MAX_HP,
+      action: null,
+      actionTurn: null,
+      healTarget: null,
+      defending: false,
+      alive: true,
+      specialCooldown: 0
+    });
+
+    playerRef.onDisconnect().remove();
+
+    document.getElementById('roomDisplay').textContent = roomId;
+    document.getElementById('roomDisplay').style.display = '';
+    if (isHost) document.getElementById('startBtn').style.display = '';
+    document.getElementById('lobbyStatus').textContent = isHost ? 'คุณเป็นโฮสต์ — แชร์รหัสให้เพื่อน' : 'รอโฮสต์เริ่มเกม...';
+
+    roomRef.on('value', onRoomUpdate);
+  }
+
+  function startGame() {
+    if (!isHost) return;
+    roomRef.update({
+      phase: 'action',
+      bossHp: BOSS_MAX_HP,
+      turn: 1,
+      logs: [{ msg: '⚔ การต่อสู้เริ่มต้นแล้ว!', type: 'info' }]
+    });
+    roomRef.child('players').once('value', function(snap) {
+      var updates = {};
+      snap.forEach(function(child) {
+        updates[child.key + '/hp'] = PLAYER_MAX_HP;
+        updates[child.key + '/action'] = null;
+        updates[child.key + '/actionTurn'] = null;
+        updates[child.key + '/healTarget'] = null;
+        updates[child.key + '/defending'] = false;
+        updates[child.key + '/alive'] = true;
+        updates[child.key + '/specialCooldown'] = 0;
+      });
+      roomRef.child('players').update(updates);
+    });
+  }
+
+  // ===== RENDER BUTTONS BASED ON CLASS =====
+  function renderChoiceButtons(me, data) {
+    var area = document.getElementById('choicesArea');
+    area.innerHTML = '';
+
+    if (myClass === 'attacker') {
+      var cd = (me && me.specialCooldown) ? me.specialCooldown : 0;
+      var cdText = cd > 0 ? '<span class="cooldown-text">อีก ' + cd + ' เทิร์น</span>' : '';
+      area.innerHTML =
+        '<button class="choice-btn btn-attack" onclick="sendAction(\'attack\')"><span class="choice-icon">⚔️</span>โจมตี</button>' +
+        '<button class="choice-btn btn-defend" onclick="sendAction(\'defend\')"><span class="choice-icon">🛡️</span>ป้องกัน</button>' +
+        '<button class="choice-btn btn-idle" onclick="sendAction(\'idle\')"><span class="choice-icon">💤</span>ไม่ทำอะไร</button>' +
+        '<button class="choice-btn btn-special" id="specialBtn" onclick="sendAction(\'special_attack\')" ' +
+          (cd > 0 ? 'disabled' : '') + '>' +
+          '<span class="choice-icon">💥</span>โจมตีพิเศษ' + cdText + '</button>';
+    } else {
+      area.innerHTML =
+        '<button class="choice-btn btn-attack" onclick="sendAction(\'attack\')"><span class="choice-icon">⚔️</span>โจมตี</button>' +
+        '<button class="choice-btn btn-defend" onclick="sendAction(\'defend\')"><span class="choice-icon">🛡️</span>ป้องกัน</button>' +
+        '<button class="choice-btn btn-idle" onclick="sendAction(\'idle\')"><span class="choice-icon">💤</span>ไม่ทำอะไร</button>' +
+        '<button class="choice-btn btn-heal" onclick="openHealPicker()"><span class="choice-icon">💚</span>ฮีลให้คนอื่น</button>';
+    }
+  }
+
+  // ===== HEAL PICKER =====
+  function openHealPicker() {
+    if (!cachedRoomData || !cachedRoomData.players) return;
+    var list = document.getElementById('healPickerList');
+    list.innerHTML = '';
+    var players = cachedRoomData.players;
+    for (var id in players) {
+      var p = players[id];
+      if (p.hp <= 0) continue;
+      var btn = document.createElement('button');
+      btn.className = 'heal-target-btn';
+      btn.setAttribute('data-id', id);
+      var nameText = (id === myId ? '► ' : '') + p.name;
+      var classIcon = p.class === 'attacker' ? ' ⚔️' : ' 💚';
+      btn.innerHTML = '<span>' + nameText + classIcon + '</span><span class="heal-target-hp">HP: ' + p.hp + '/' + p.maxHp + '</span>';
+      btn.onclick = (function(tid) { return function() { selectHealTarget(tid); }; })(id);
+      list.appendChild(btn);
+    }
+    document.getElementById('healPicker').classList.add('show');
+  }
+
+  function selectHealTarget(targetId) {
+    closeHealPicker();
+    if (hasSentAction) return;
+    var turnNow = cachedRoomData ? cachedRoomData.turn : null;
+    pendingAction = 'heal';
+    pendingHealTarget = targetId;
+    hasSentAction = true;
+    setButtons(false);
+    roomRef.child('players/' + myId).update({
+      action: 'heal',
+      actionTurn: turnNow,
+      healTarget: targetId
+    }, function(err) {
+      if (err) {
+        hasSentAction = false;
+        pendingAction = null;
+        pendingHealTarget = null;
+        setButtons(true);
+        document.getElementById('turnIndicator').textContent = 'ส่งแอคชั่นไม่สำเร็จ ลองใหม่อีกครั้ง';
+      }
+    });
+    document.getElementById('turnIndicator').textContent = 'รอผู้เล่นคนอื่น...';
+  }
+
+  function closeHealPicker() {
+    document.getElementById('healPicker').classList.remove('show');
+  }
+
+  // ===== MAIN LISTENER =====
+  function onRoomUpdate(snap) {
+    var data = snap.val();
+    if (!data) return;
+    cachedRoomData = data;
+
+    // Host transfer
+    if (data.players && !data.players[data.hostId]) {
+      var ids = Object.keys(data.players);
+      if (ids.length > 0 && ids[0] === myId) {
+        roomRef.child('hostId').set(myId);
+        isHost = true;
+      }
+    }
+    if (data.hostId === myId) isHost = true;
+
+    if (data.phase === 'lobby') {
+      showScreen('lobby');
+      document.getElementById('gameContainer').classList.remove('active');
+      document.getElementById('overlay').classList.remove('show');
+      var names = data.players ? Object.values(data.players).map(function(p) {
+        var icon = p.class === 'attacker' ? '⚔️' : '💚';
+        return p.name + ' ' + icon;
+      }) : [];
+      document.getElementById('lobbyPlayers').textContent = names.length ? 'ผู้เล่น: ' + names.join(', ') : '';
+      return;
+    }
+
+    // In game — hide lobby, show game
+    document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+    document.getElementById('gameContainer').classList.add('active');
+
+    // Boss HP bars
+    var hpPerBar = data.bossMaxHp / 3;
+    for (var i = 0; i < 3; i++) {
+      var cur = Math.max(0, Math.min(hpPerBar, data.bossHp - i * hpPerBar));
+      var pct = (cur / hpPerBar) * 100;
+      document.getElementById('hpFill' + (i + 1)).style.width = pct + '%';
+      var w = document.getElementById('hpBar' + (i + 1));
+      pct <= 0 ? w.classList.add('empty') : w.classList.remove('empty');
+    }
+    document.getElementById('bossHpText').textContent = 'HP: ' + Math.max(0, data.bossHp) + ' / ' + data.bossMaxHp;
+
+    // Players panel
+    var panel = document.getElementById('playersPanel');
+    panel.innerHTML = '<div class="players-panel-title">ผู้เล่น</div>';
+    if (data.players) {
+      for (var id in data.players) {
+        var p = data.players[id];
+        var ppct = Math.max(0, (p.hp / p.maxHp) * 100);
+        var isMe = id === myId;
+        var isDead = p.hp <= 0;
+        var fillClass = isDead ? 'dead' : ppct < 30 ? 'critical' : ppct < 60 ? 'low' : '';
+        var acted = p.action !== null && p.action !== undefined;
+        var statusText = isDead ? '💀' : acted ? '✓ เลือกแล้ว' : '...';
+        var classIcon = p.class === 'attacker' ? '⚔️' : '💚';
+
+        panel.innerHTML +=
+          '<div class="player-entry">' +
+            '<div class="pe-header">' +
+              '<span class="pe-name ' + (isMe ? 'me' : '') + ' ' + (isDead ? 'dead' : '') + '">' +
+                (isMe ? '► ' : '') + p.name + ' <span class="pe-class">' + classIcon + '</span></span>' +
+              '<span class="pe-hp">' + Math.max(0, p.hp) + ' / ' + p.maxHp + '</span>' +
+            '</div>' +
+            '<div class="pe-bar"><div class="pe-fill ' + fillClass + '" style="width:' + ppct + '%"></div></div>' +
+            '<div class="pe-status">' + statusText + '</div>' +
+          '</div>';
+      }
+    }
+
+    // Logs
+    if (data.logs && data.logs.length > lastLogCount) {
+      var newLogs = data.logs.slice(lastLogCount);
+      newLogs.forEach(function(l) { addLog(l.msg, l.type); });
+      lastLogCount = data.logs.length;
+    }
+
+    // Me
+    var me = data.players ? data.players[myId] : null;
+
+    // Render class-specific buttons
+    renderChoiceButtons(me, data);
+
+    if (data.phase === 'action') {
+      if (data.turn !== lastResetTurn) {
+        hasSentAction = false;
+        isResolving = false;
+        pendingAction = null;
+        pendingHealTarget = null;
+        lastResetTurn = data.turn;
+      }
+
+      if (me && me.action != null) {
+        pendingAction = null;
+        pendingHealTarget = null;
+      }
+
+      var canAct = me && me.hp > 0 && !hasSentAction;
+      setButtons(canAct);
+
+      var players = data.players || {};
+      var aliveCount = Object.values(players).filter(function(p) { return p.hp > 0; }).length;
+      var actedCount = Object.values(players).filter(function(p) {
+        return p.hp > 0 && p.action != null && p.actionTurn === data.turn;
+      }).length;
+
+      // Fallback for solo rooms: if local action was chosen but Firebase snapshot is still stale,
+      // inject pending action into the host-side snapshot so round resolution can continue.
+      if (isHost && aliveCount === 1 && me && me.hp > 0 && me.action == null && hasSentAction && pendingAction) {
+        me.action = pendingAction;
+        me.actionTurn = data.turn;
+        if (pendingAction === 'heal') me.healTarget = pendingHealTarget || myId;
+        actedCount = 1;
+      }
+
+      document.getElementById('turnIndicator').textContent = hasSentAction
+        ? 'รอผู้เล่นคนอื่น... (' + actedCount + '/' + aliveCount + ')'
+        : 'เทิร์นที่ ' + data.turn + ' — เลือกแอคชั่น';
+
+      if (isHost && aliveCount > 0 && actedCount >= aliveCount && !isResolving) {
+        isResolving = true;
+        resolveRound(data);
+      }
+      document.getElementById('overlay').classList.remove('show');
+    }
+
+    if (data.phase === 'resolving') {
+      setButtons(false);
+      document.getElementById('turnIndicator').textContent = 'กำลังคำนวณ...';
+    }
+
+    if (data.phase === 'ended') {
+      setButtons(false);
+      document.getElementById('overlay').classList.add('show');
+      if (data.bossHp <= 0) {
+        document.getElementById('overlayTitle').textContent = '🎉 ชัยชนะ!';
+        document.getElementById('overlayTitle').className = 'win';
+        document.getElementById('overlayStats').textContent = 'จบในเทิร์นที่ ' + data.turn;
+      } else {
+        document.getElementById('overlayTitle').textContent = '💀 พ่ายแพ้...';
+        document.getElementById('overlayTitle').className = 'lose';
+        document.getElementById('overlayStats').textContent = 'HP บอสเหลือ: ' + data.bossHp;
+      }
+    }
+
+    lastPhase = data.phase;
+
+    if (data.phase === 'resolving') {
+      var bossImg = document.getElementById('bossImg');
+      bossImg.classList.add('hit');
+      setTimeout(function() {
+        bossImg.classList.remove('hit');
+        bossImg.classList.add('attacking');
+        setTimeout(function() { bossImg.classList.remove('attacking'); }, 400);
+      }, 300);
+    }
+  }
+
+  // ===== SEND ACTION =====
+  function sendAction(action) {
+    if (hasSentAction) return;
+    var turnNow = cachedRoomData ? cachedRoomData.turn : null;
+    pendingAction = action;
+    pendingHealTarget = null;
+    hasSentAction = true;
+    setButtons(false);
+    roomRef.child('players/' + myId).update({
+      action: action,
+      actionTurn: turnNow
+    }, function(err) {
+      if (err) {
+        hasSentAction = false;
+        pendingAction = null;
+        setButtons(true);
+        document.getElementById('turnIndicator').textContent = 'ส่งแอคชั่นไม่สำเร็จ ลองใหม่อีกครั้ง';
+      }
+    });
+    document.getElementById('turnIndicator').textContent = 'รอผู้เล่นคนอื่น...';
+  }
+
+  // ===== RESOLVE ROUND (host only) =====
+  function resolveRound(data) {
+    roomRef.child('phase').set('resolving');
+
+    var players = data.players;
+    var logs = data.logs ? [].concat(data.logs) : [];
+    var bossHp = data.bossHp;
+    var updates = {};
+
+    // 1) Player actions
+    for (var id in players) {
+      var p = players[id];
+      if (p.hp <= 0 || !p.action) continue;
+      updates[id + '/defending'] = false;
+
+      switch (p.action) {
+        case 'attack': {
+          var dmg = rand(18, 35);
+          bossHp -= dmg;
+          logs.push({ msg: '⚔ ' + p.name + ' โจมตี! ดาเมจ ' + dmg, type: 'player-action' });
+          break;
+        }
+        case 'special_attack': {
+          var baseDmg = rand(18, 35);
+          var sDmg = baseDmg * 2;
+          bossHp -= sDmg;
+          updates[id + '/specialCooldown'] = SPECIAL_COOLDOWN;
+          logs.push({ msg: '💥 ' + p.name + ' โจมตีพิเศษ! ดาเมจ ' + sDmg, type: 'player-action' });
+          break;
+        }
+        case 'defend': {
+          updates[id + '/defending'] = true;
+          logs.push({ msg: '🛡 ' + p.name + ' เตรียมป้องกัน!', type: 'player-action' });
+          break;
+        }
+        case 'heal': {
+          var targetId = p.healTarget;
+          var target = targetId && players[targetId] ? players[targetId] : null;
+          if (target && target.hp > 0) {
+            var heal = rand(15, 28);
+            var tHp = updates[targetId + '/hp'] !== undefined ? updates[targetId + '/hp'] : target.hp;
+            var actual = Math.min(heal, target.maxHp - tHp);
+            updates[targetId + '/hp'] = tHp + actual;
+            logs.push({ msg: '💚 ' + p.name + ' ฮีล ' + target.name + '! +' + actual + ' HP', type: 'heal-action' });
+          } else {
+            logs.push({ msg: '💚 ' + p.name + ' พยายามฮีล แต่เป้าหมายไม่อยู่...', type: 'info' });
+          }
+          break;
+        }
+        case 'idle': {
+          logs.push({ msg: '💤 ' + p.name + ' ไม่ได้ทำอะไร...', type: 'info' });
+          break;
+        }
+      }
+      updates[id + '/action'] = null;
+      updates[id + '/actionTurn'] = null;
+      updates[id + '/healTarget'] = null;
+
+      // Decrease cooldown
+      var currentCd = updates[id + '/specialCooldown'] !== undefined
+        ? updates[id + '/specialCooldown']
+        : (p.specialCooldown || 0);
+      if (p.action !== 'special_attack' && currentCd > 0) {
+        updates[id + '/specialCooldown'] = currentCd - 1;
+      }
+    }
+
+    // Boss dead?
+    if (bossHp <= 0) {
+      bossHp = 0;
+      roomRef.update({ bossHp: bossHp, phase: 'ended', turn: data.turn, logs: logs });
+      roomRef.child('players').update(updates);
+      return;
+    }
+
+    // 2) Boss attacks
+    var aliveIds = [];
+    for (var aid in players) {
+      var ahp = updates[aid + '/hp'] !== undefined ? updates[aid + '/hp'] : players[aid].hp;
+      if (ahp > 0) aliveIds.push(aid);
+    }
+
+    var bossRatio = bossHp / data.bossMaxHp;
+    var attackCount = Math.min(aliveIds.length, bossRatio < 0.3 ? 3 : bossRatio < 0.6 ? 2 : 1);
+    var targets = shuffle(aliveIds).slice(0, attackCount);
+
+    for (var t = 0; t < targets.length; t++) {
+      var tid = targets[t];
+      var tp = players[tid];
+      var currentHp = updates[tid + '/hp'] !== undefined ? updates[tid + '/hp'] : tp.hp;
+      var isDefending = updates[tid + '/defending'] !== undefined ? updates[tid + '/defending'] : tp.defending;
+      var isHeavy = bossRatio < 0.5 && Math.random() < 0.4;
+      var bDmg = isHeavy ? rand(25, 40) : rand(10, 25);
+
+      if (isDefending) {
+        bDmg = Math.floor(bDmg * (isHeavy ? 0.4 : 0.3));
+        logs.push({ msg: '🛡 ' + tp.name + ' ป้องกัน' + (isHeavy ? 'ท่าหนัก' : '') + '! ลดเหลือ ' + bDmg, type: 'player-action' });
+      } else {
+        logs.push({ msg: '👹 บอส' + (isHeavy ? 'ใช้ท่าหนัก' : 'โจมตี') + ' ' + tp.name + '! ดาเมจ ' + bDmg, type: 'boss-action' });
+      }
+      updates[tid + '/hp'] = Math.max(0, currentHp - bDmg);
+    }
+
+    // All dead?
+    var allDead = true;
+    for (var did in players) {
+      var dhp = updates[did + '/hp'] !== undefined ? updates[did + '/hp'] : players[did].hp;
+      if (dhp > 0) { allDead = false; break; }
+    }
+
+    if (allDead) {
+      roomRef.update({ bossHp: bossHp, phase: 'ended', turn: data.turn, logs: logs });
+      roomRef.child('players').update(updates);
+      return;
+    }
+
+    roomRef.update({ bossHp: bossHp, turn: data.turn + 1, logs: logs });
+    roomRef.child('players').update(updates);
+
+    setTimeout(function() {
+      roomRef.child('phase').set('action');
+    }, 800);
+  }
+
+  // ===== RESTART =====
+  function restartGame() {
+    if (!isHost) return;
+    lastLogCount = 0;
+    hasSentAction = false;
+    isResolving = false;
+    lastResetTurn = 0;
+    pendingAction = null;
+    pendingHealTarget = null;
+    document.getElementById('battleLog').innerHTML = '';
+
+    roomRef.child('players').once('value', function(snap) {
+      var updates = {};
+      snap.forEach(function(child) {
+        updates[child.key + '/hp'] = PLAYER_MAX_HP;
+        updates[child.key + '/action'] = null;
+        updates[child.key + '/actionTurn'] = null;
+        updates[child.key + '/healTarget'] = null;
+        updates[child.key + '/defending'] = false;
+        updates[child.key + '/alive'] = true;
+        updates[child.key + '/specialCooldown'] = 0;
+      });
+      roomRef.child('players').update(updates);
+      roomRef.update({
+        phase: 'action',
+        bossHp: BOSS_MAX_HP,
+        turn: 1,
+        logs: [{ msg: '🔄 เริ่มเกมใหม่!', type: 'info' }]
+      });
+    });
+  }
+
+  // ===== HELPERS =====
+  function rand(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function shuffle(arr) {
+    var a = [].concat(arr);
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  function setButtons(enabled) {
+    document.querySelectorAll('#choicesArea .choice-btn').forEach(function(b) {
+      if (b.id === 'specialBtn' && enabled) {
+        var me = cachedRoomData && cachedRoomData.players ? cachedRoomData.players[myId] : null;
+        b.disabled = me && me.specialCooldown > 0;
+      } else {
+        b.disabled = !enabled;
+      }
+    });
+  }
+
+  function addLog(msg, type) {
+    var log = document.getElementById('battleLog');
+    var entry = document.createElement('div');
+    entry.className = 'log-entry ' + type;
+    entry.textContent = msg;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+</script>
+</body>
+</html>
