@@ -504,11 +504,16 @@
 
   function joinRoom() {
     roomId = document.getElementById('roomInput').value.trim().toUpperCase();
+    console.log('[DEBUG] joinRoom: roomId =', roomId);
     if (roomId.length !== 4) { alert('รหัสห้อง 4 ตัว!'); return; }
     db.ref('rooms/' + roomId).once('value', function(snap) {
+      console.log('[DEBUG] joinRoom: snap.exists =', snap.exists(), 'data =', snap.val());
       if (!snap.exists()) { alert('ไม่พบห้อง ' + roomId); return; }
       isHost = false;
       setupRoom(false);
+    }, function(error) {
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อห้อง: ' + error.message);
+      console.error('[DEBUG] joinRoom: Firebase error', error);
     });
   }
 
