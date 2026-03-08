@@ -343,7 +343,6 @@
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
-  // const auth = firebase.auth();
   const fns = firebase.app().functions('asia-southeast1');
   const registerPlayerFn = fns.httpsCallable('registerPlayer');
 
@@ -388,6 +387,7 @@
     if (loginBtn) loginBtn.disabled = busy;
   }
 
+
   async function emailLogin() {
     if (authBusy) return;
     setAuthBusy(true);
@@ -428,6 +428,9 @@
       document.getElementById('setupEmail').textContent = 'ID: ' + playerId;
       document.getElementById('nameInput').value = myName;
       document.getElementById('nameInput').disabled = true;
+      // Save to localStorage
+      localStorage.setItem('uid6', playerId);
+      localStorage.setItem('uid6pass', passwordInput);
       showScreen('setupScreen');
       document.getElementById('loginStatus').textContent = '';
     } catch (e) {
@@ -438,7 +441,34 @@
 
 
 
-  // Remove Firebase Auth state listener, handle screen transitions manually
+  // เมื่อ logout ให้ซ่อนฟอร์ม UID ด้วย
+  // Auto-login ด้วย localStorage (ไม่ต้องใช้ Google Auth)
+  window.addEventListener('DOMContentLoaded', async function() {
+    const savedId = localStorage.getItem('uid6');
+    const savedPass = localStorage.getItem('uid6pass');
+    if (savedId && savedPass) {
+      try {
+        const snap = await db.ref('allowedPlayerIds/' + savedId).get({forceServer: true});
+        if (snap.exists()) {
+          const player = snap.val();
+          if (!player.used && player.password === savedPass) {
+            loggedInPlayerId = savedId;
+            myId = savedId;
+            myName = player.name || '';
+            document.getElementById('setupEmail').textContent = 'ID: ' + savedId;
+            document.getElementById('nameInput').value = myName;
+            document.getElementById('nameInput').disabled = true;
+            showScreen('setupScreen');
+            document.getElementById('loginStatus').textContent = '';
+            return;
+          }
+        }
+      } catch (e) {
+        localStorage.removeItem('uid6');
+        localStorage.removeItem('uid6pass');
+      }
+    }
+  });
 
   // ===== 2) SETUP =====
   let selectedClass = '';
@@ -487,6 +517,9 @@
     pendingHealTarget = null;
     lastLogCount = 0;
     loggedInPlayerId = null;
+    // ลบข้อมูลที่จำไว้
+    localStorage.removeItem('uid6');
+    localStorage.removeItem('uid6pass');
     document.getElementById('battleLog').innerHTML = '';
     document.getElementById('joinArea').style.display = 'none';
     document.getElementById('roomDisplay').style.display = 'none';
