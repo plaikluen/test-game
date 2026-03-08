@@ -23,19 +23,28 @@ exports.registerPlayer = onCall(async (req) => {
 	}
 
 	const allowRef = admin.database().ref("allowedPlayerIds/" + playerId);
+	const snap = await allowRef.get();
+	const current = snap.val();
 
-	const tx = await allowRef.transaction((current) => {
-		if (!current) return;
-		if (current.used) return;
+	if (!current) {
+		throw new HttpsError("permission-denied", "ID not allowed");
+	}
+	if (current.used === true) {
+		throw new HttpsError("permission-denied", "ID already used");
+	}
+
+	const tx = await allowRef.transaction((row) => {
+		if (!row) return;
+		if (row.used) return;
 		return {
-			...current,
+			...row,
 			used: true,
 			usedAt: Date.now(),
 		};
 	});
 
 	if (!tx.committed || !tx.snapshot.exists()) {
-		throw new HttpsError("permission-denied", "ID not allowed or already used");
+		throw new HttpsError("permission-denied", "ID already used");
 	}
 
 	const email = playerId + "@player.local";

@@ -243,8 +243,8 @@
   <input type="text" class="auth-input" id="loginPlayerId" placeholder="รหัสผู้เล่น 6 หลัก" maxlength="6" inputmode="numeric" autocomplete="username">
   <input type="password" class="auth-input" id="loginPassword" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
   <div class="auth-row">
-    <button class="google-btn" onclick="emailLogin()">เข้าสู่ระบบ</button>
-    <button class="google-btn" onclick="registerWithEmail()">สมัครสมาชิก</button>
+    <button class="google-btn" id="loginBtn" onclick="emailLogin()">เข้าสู่ระบบ</button>
+    <button class="google-btn" id="registerBtn" onclick="registerWithEmail()">สมัครสมาชิก</button>
   </div>
   <div class="sub" id="loginStatus"></div>
 </div>
@@ -367,6 +367,7 @@
   let lastResetTurn = 0;
   let pendingAction = null;
   let pendingHealTarget = null;
+  let authBusy = false;
 
   // ===== SCREEN MANAGEMENT =====
   function showScreen(id) {
@@ -391,19 +392,32 @@
     };
   }
 
+  function setAuthBusy(busy) {
+    authBusy = busy;
+    var loginBtn = document.getElementById('loginBtn');
+    var registerBtn = document.getElementById('registerBtn');
+    if (loginBtn) loginBtn.disabled = busy;
+    if (registerBtn) registerBtn.disabled = busy;
+  }
+
   function emailLogin() {
+    if (authBusy) return;
     var form = getAuthForm();
     if (!/^\d{6}$/.test(form.playerId) || !form.password) {
       document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
       return;
     }
     document.getElementById('loginStatus').textContent = 'กำลังเข้าสู่ระบบ...';
+    setAuthBusy(true);
     auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(err) {
       document.getElementById('loginStatus').textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + err.message;
+    }).finally(function() {
+      setAuthBusy(false);
     });
   }
 
   function registerWithEmail() {
+    if (authBusy) return;
     var form = getAuthForm();
     if (!/^\d{6}$/.test(form.playerId) || !form.password) {
       document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
@@ -414,11 +428,14 @@
       return;
     }
     document.getElementById('loginStatus').textContent = 'กำลังสมัครสมาชิกครั้งแรก...';
+    setAuthBusy(true);
     registerPlayerFn({ playerId: form.playerId, password: form.password }).then(function() {
       return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password);
     }).catch(function(err) {
       var msg = err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
       document.getElementById('loginStatus').textContent = 'สมัครสมาชิกไม่สำเร็จ: ' + msg;
+    }).finally(function() {
+      setAuthBusy(false);
     });
   }
 
