@@ -241,6 +241,7 @@
   <h1>⚔ Boss Fight — Multiplayer</h1>
   <div class="sub">เข้าสู่ระบบด้วยรหัสผู้เล่น 6 หลัก + รหัสผ่าน</div>
   <input type="text" class="auth-input" id="loginPlayerId" placeholder="รหัสผู้เล่น 6 หลัก" maxlength="6" inputmode="numeric" autocomplete="username">
+  <input type="password" class="auth-input" id="loginPassword" placeholder="รหัสผ่าน" autocomplete="current-password">
   <div class="auth-row">
     <button class="google-btn" id="loginBtn" onclick="emailLogin()">เข้าสู่ระบบ</button>
   </div>
@@ -342,7 +343,7 @@
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
-  const auth = firebase.auth();
+  // const auth = firebase.auth();
   const fns = firebase.app().functions('asia-southeast1');
   const registerPlayerFn = fns.httpsCallable('registerPlayer');
 
@@ -358,6 +359,7 @@
   let roomId = null;
   let roomRef = null;
   let isHost = false;
+  let loggedInPlayerId = null;
   let lastLogCount = 0;
   let hasSentAction = false;
   let lastPhase = '';
@@ -375,98 +377,68 @@
     if (el) el.classList.add('active');
   }
 
-  // ===== 1) EMAIL/PASSWORD AUTH =====
+  // ===== 1) MANUAL UID/PASSWORD LOGIN =====
   function sanitizePlayerId(id) {
     return String(id || '').replace(/\D/g, '').slice(0, 6);
-  }
-
-  function idToEmail(playerId) {
-    return playerId + '@player.local';
-  }
-
-  async function getAuthForm() {
-    const playerId = sanitizePlayerId(document.getElementById('loginPlayerId').value);
-    // ดึง password จาก allowedPlayerIds (force server fetch)
-    let password = '';
-    try {
-      const snap = await db.ref('allowedPlayerIds/' + playerId + '/password').get({forceServer: true});
-      if (snap.exists()) password = snap.val();
-      console.log('[DEBUG] password for', playerId, '=', password);
-    } catch (e) { console.error('[DEBUG] get password error', e); }
-    return { playerId, password };
   }
 
   function setAuthBusy(busy) {
     authBusy = busy;
     var loginBtn = document.getElementById('loginBtn');
-    var registerBtn = document.getElementById('registerBtn');
     if (loginBtn) loginBtn.disabled = busy;
-    if (registerBtn) registerBtn.disabled = busy;
-  }
-
-  function mapAuthError(err) {
-    var code = err && err.code ? err.code : '';
-    if (code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') {
-      return 'เลขหรือรหัสผ่านไม่ถูกต้อง (ถ้ายังไม่เคยสมัคร ให้กดสมัครสมาชิกก่อน)';
-    }
-    if (code === 'auth/user-disabled') {
-      return 'บัญชีนี้ถูกปิดใช้งาน';
-    }
-    if (code === 'auth/too-many-requests') {
-      return 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่';
-    }
-    if (code === 'functions/aborted') {
-      return 'ระบบกำลังประมวลผลการสมัคร กรุณารอ 2-3 วินาทีแล้วกดสมัครใหม่';
-    }
-    return err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
   }
 
   async function emailLogin() {
     if (authBusy) return;
-    var form = await getAuthForm();
-    if (!/^\d{6}$/.test(form.playerId)) {
-      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักให้ถูกต้อง';
-      return;
-    }
-    if (!form.password) {
-      document.getElementById('loginStatus').textContent = '[DEBUG] ไม่พบ password ใน allowedPlayerIds สำหรับไอดีนี้';
-      console.error('[DEBUG] No password found for', form.playerId);
-      return;
-    }
-    console.log('[DEBUG] login with', form.playerId, form.password);
-    document.getElementById('loginStatus').textContent = 'กำลังเข้าสู่ระบบ...';
     setAuthBusy(true);
-    auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(err) {
-      document.getElementById('loginStatus').textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + mapAuthError(err);
-    }).finally(function() {
+    const playerId = sanitizePlayerId(document.getElementById('loginPlayerId').value);
+    const passwordInput = document.getElementById('loginPassword').value;
+    if (!/^\d{6}$/.test(playerId)) {
+      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักให้ถูกต้อง';
       setAuthBusy(false);
-    });
+      return;
+    }
+    if (!passwordInput) {
+      document.getElementById('loginStatus').textContent = 'กรุณากรอกรหัสผ่าน';
+      setAuthBusy(false);
+      return;
+    }
+    try {
+      const snap = await db.ref('allowedPlayerIds/' + playerId).get({forceServer: true});
+      if (!snap.exists()) {
+        document.getElementById('loginStatus').textContent = 'ไม่พบรหัสผู้เล่นนี้';
+        setAuthBusy(false);
+        return;
+      }
+      const player = snap.val();
+      if (player.used) {
+        document.getElementById('loginStatus').textContent = 'รหัสผู้เล่นนี้ถูกใช้ไปแล้ว';
+        setAuthBusy(false);
+        return;
+      }
+      if (player.password !== passwordInput) {
+        document.getElementById('loginStatus').textContent = 'รหัสผ่านไม่ถูกต้อง';
+        setAuthBusy(false);
+        return;
+      }
+      // Success: set local state and go to setup
+      loggedInPlayerId = playerId;
+      myId = playerId;
+      myName = player.name || '';
+      document.getElementById('setupEmail').textContent = 'ID: ' + playerId;
+      document.getElementById('nameInput').value = myName;
+      document.getElementById('nameInput').disabled = true;
+      showScreen('setupScreen');
+      document.getElementById('loginStatus').textContent = '';
+    } catch (e) {
+      document.getElementById('loginStatus').textContent = 'เกิดข้อผิดพลาด: ' + (e.message || e);
+    }
+    setAuthBusy(false);
   }
 
 
 
-  auth.onAuthStateChanged(function(user) {
-    if (user) {
-      myId = user.uid;
-      var email = user.email || '';
-      var label = email.endsWith('@player.local') ? ('ID: ' + email.replace('@player.local', '')) : email;
-      document.getElementById('setupEmail').textContent = label || 'ไม่ทราบผู้ใช้';
-
-      // ดึงชื่อจาก allowedPlayerIds
-      var playerId = email.replace('@player.local', '');
-      db.ref('allowedPlayerIds/' + playerId + '/name').once('value', function(snap) {
-        if (snap.exists()) {
-          myName = snap.val();
-          document.getElementById('nameInput').value = myName;
-          document.getElementById('nameInput').disabled = true; // ไม่ให้แก้ไขชื่อ
-        }
-      });
-
-      showScreen('setupScreen');
-    } else {
-      showScreen('loginScreen');
-    }
-  });
+  // Remove Firebase Auth state listener, handle screen transitions manually
 
   // ===== 2) SETUP =====
   let selectedClass = '';
@@ -514,13 +486,14 @@
     pendingAction = null;
     pendingHealTarget = null;
     lastLogCount = 0;
+    loggedInPlayerId = null;
     document.getElementById('battleLog').innerHTML = '';
     document.getElementById('joinArea').style.display = 'none';
     document.getElementById('roomDisplay').style.display = 'none';
     document.getElementById('startBtn').style.display = 'none';
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('gameContainer').classList.remove('active');
-    auth.signOut();
+    showScreen('loginScreen');
   }
 
   function createRoom() {
