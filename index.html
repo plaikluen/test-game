@@ -433,6 +433,13 @@
       return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password);
     }).catch(function(err) {
       var msg = err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
+      if (msg.indexOf('ID already used') !== -1) {
+        document.getElementById('loginStatus').textContent = 'เลขนี้เคยสมัครแล้ว กำลังเข้าสู่ระบบ...';
+        return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(loginErr) {
+          var loginMsg = loginErr && loginErr.message ? loginErr.message : 'ไม่ทราบสาเหตุ';
+          document.getElementById('loginStatus').textContent = 'เลขนี้ถูกใช้แล้ว กรุณากดเข้าสู่ระบบ: ' + loginMsg;
+        });
+      }
       document.getElementById('loginStatus').textContent = 'สมัครสมาชิกไม่สำเร็จ: ' + msg;
     }).finally(function() {
       setAuthBusy(false);
