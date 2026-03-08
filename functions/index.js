@@ -44,7 +44,15 @@ exports.registerPlayer = onCall(async (req) => {
 	});
 
 	if (!tx.committed || !tx.snapshot.exists()) {
-		throw new HttpsError("permission-denied", "ID already used");
+		try {
+			await admin.auth().getUser(playerId);
+			throw new HttpsError("permission-denied", "ID already used");
+		} catch (e) {
+			if (e && e.code === "auth/user-not-found") {
+				throw new HttpsError("aborted", "ID is being processed, please retry");
+			}
+			throw e;
+		}
 	}
 
 	const email = playerId + "@player.local";

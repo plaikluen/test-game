@@ -411,6 +411,9 @@
     if (code === 'auth/too-many-requests') {
       return 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่';
     }
+    if (code === 'functions/aborted') {
+      return 'ระบบกำลังประมวลผลการสมัคร กรุณารอ 2-3 วินาทีแล้วกดสมัครใหม่';
+    }
     return err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
   }
 
