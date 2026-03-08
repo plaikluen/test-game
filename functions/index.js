@@ -27,13 +27,18 @@ exports.registerPlayer = onCall(async (req) => {
 			throw new HttpsError('invalid-argument', 'playerId must be 6 digits');
 		}
 
-		// Remove Auth user if exists
+		// Remove Auth user by email (lookup UID by email)
 		let authDeleted = false;
+		const email = playerId + '@player.local';
 		try {
-			await admin.auth().deleteUser(playerId);
+			const userRecord = await admin.auth().getUserByEmail(email);
+			await admin.auth().deleteUser(userRecord.uid);
 			authDeleted = true;
 		} catch (e) {
-			if (e.code !== 'auth/user-not-found') {
+			if (e.code === 'auth/user-not-found') {
+				// User does not exist, treat as already deleted
+				authDeleted = false;
+			} else {
 				throw new HttpsError('internal', 'Failed to delete Auth user: ' + e.message);
 			}
 		}
