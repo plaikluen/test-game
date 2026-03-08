@@ -1,5 +1,6 @@
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
 setGlobalOptions({maxInstances: 10, region: "asia-southeast1"});
@@ -11,6 +12,83 @@ exports.ping = onRequest((req, res) => {
 });
 
 exports.registerPlayer = onCall(async (req) => {
+	// Admin callable function to reset/delete a player (Auth + allowedPlayerIds)
+	exports.resetPlayer = onCall(async (req) => {
+		const data = req.data || {};
+		const playerId = String(data.playerId || '').trim();
+		const adminSecret = String(data.adminSecret || '');
+
+		// ใช้ค่า secret จาก firebase functions:config:set admin.secret="xxxx"
+		const configSecret = functions.config().admin && functions.config().admin.secret;
+		if (!configSecret || adminSecret !== configSecret) {
+			throw new HttpsError('permission-denied', 'Invalid admin secret');
+		}
+		if (!/^[0-9]{6}$/.test(playerId)) {
+			throw new HttpsError('invalid-argument', 'playerId must be 6 digits');
+		}
+
+		// Remove Auth user if exists
+		let authDeleted = false;
+		try {
+			await admin.auth().deleteUser(playerId);
+			authDeleted = true;
+		} catch (e) {
+			if (e.code !== 'auth/user-not-found') {
+				throw new HttpsError('internal', 'Failed to delete Auth user: ' + e.message);
+			}
+		}
+
+		// Reset allowedPlayerIds DB entry
+		const allowRef = admin.database().ref('allowedPlayerIds/' + playerId);
+		const snap = await allowRef.get();
+		if (snap.exists()) {
+			await allowRef.update({ used: false, usedAt: null });
+		}
+
+		return {
+			ok: true,
+			authDeleted,
+			dbReset: snap.exists(),
+		};
+	});
+	// Admin callable function to reset/delete a player (Auth + allowedPlayerIds)
+	exports.resetPlayer = onCall(async (req) => {
+		const data = req.data || {};
+		const playerId = String(data.playerId || '').trim();
+		const adminSecret = String(data.adminSecret || '');
+
+		// Simple admin check (replace with env var or better method in production)
+		if (adminSecret !== process.env.ADMIN_SECRET) {
+			throw new HttpsError('permission-denied', 'Invalid admin secret');
+		}
+		if (!/^[0-9]{6}$/.test(playerId)) {
+			throw new HttpsError('invalid-argument', 'playerId must be 6 digits');
+		}
+
+		// Remove Auth user if exists
+		let authDeleted = false;
+		try {
+			await admin.auth().deleteUser(playerId);
+			authDeleted = true;
+		} catch (e) {
+			if (e.code !== 'auth/user-not-found') {
+				throw new HttpsError('internal', 'Failed to delete Auth user: ' + e.message);
+			}
+		}
+
+		// Reset allowedPlayerIds DB entry
+		const allowRef = admin.database().ref('allowedPlayerIds/' + playerId);
+		const snap = await allowRef.get();
+		if (snap.exists()) {
+			await allowRef.update({ used: false, usedAt: null });
+		}
+
+		return {
+			ok: true,
+			authDeleted,
+			dbReset: snap.exists(),
+		};
+	});
 	const data = req.data || {};
 	const playerId = String(data.playerId || "").trim();
 	const password = String(data.password || "");
