@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Boss Fight! — Multiplayer</title>
 <style>
+    .default-name {
+      display: block;
+      font-size: 0.7em;
+      color: #888;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700;900&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -491,6 +498,8 @@
     myName = document.getElementById('nameInput').value.trim().slice(0, 20);
     myClass = selectedClass;
     if (!myName || !myClass) return;
+    // Save custom name to localStorage
+    if (myId) localStorage.setItem('customName_' + myId, myName);
     var classLabel = myClass === 'attacker' ? '⚔️ Attacker' : '💚 Healer';
     document.getElementById('myInfoText').textContent = myName + ' — ' + classLabel;
     showScreen('lobby');
@@ -574,21 +583,25 @@
       });
     }
 
-    var playerRef = roomRef.child('players/' + myId);
-    playerRef.set({
-      name: myName,
-      class: myClass,
-      hp: PLAYER_MAX_HP,
-      maxHp: PLAYER_MAX_HP,
-      action: null,
-      actionTurn: null,
-      healTarget: null,
-      defending: false,
-      alive: true,
-      specialCooldown: 0
+    // Fetch defaultName from allowedPlayerIds
+    db.ref('allowedPlayerIds/' + myId + '/name').once('value', function(snap) {
+      var defaultName = snap.exists() ? snap.val() : '';
+      var playerRef = roomRef.child('players/' + myId);
+      playerRef.set({
+        name: myName,
+        defaultName: defaultName,
+        class: myClass,
+        hp: PLAYER_MAX_HP,
+        maxHp: PLAYER_MAX_HP,
+        action: null,
+        actionTurn: null,
+        healTarget: null,
+        defending: false,
+        alive: true,
+        specialCooldown: 0
+      });
+      playerRef.onDisconnect().remove();
     });
-
-    playerRef.onDisconnect().remove();
 
     document.getElementById('roomDisplay').textContent = roomId;
     document.getElementById('roomDisplay').style.display = '';
@@ -657,7 +670,12 @@
       var btn = document.createElement('button');
       btn.className = 'heal-target-btn';
       btn.setAttribute('data-id', id);
-      var nameText = (id === myId ? '► ' : '') + p.name;
+      var displayName = p.name || '';
+      var defaultName = p.defaultName || '';
+      var nameText = (id === myId ? '► ' : '') + displayName;
+      if (defaultName && defaultName !== displayName) {
+        nameText += '<span class="default-name">' + defaultName + '</span>';
+      }
       var classIcon = p.class === 'attacker' ? ' ⚔️' : ' 💚';
       btn.innerHTML = '<span>' + nameText + classIcon + '</span><span class="heal-target-hp">HP: ' + p.hp + '/' + p.maxHp + '</span>';
       btn.onclick = (function(tid) { return function() { selectHealTarget(tid); }; })(id);
@@ -750,12 +768,15 @@
         var acted = p.action !== null && p.action !== undefined;
         var statusText = isDead ? '💀' : acted ? '✓ เลือกแล้ว' : '...';
         var classIcon = p.class === 'attacker' ? '⚔️' : '💚';
-
+        var displayName = p.name || '';
+        var defaultName = p.defaultName || '';
         panel.innerHTML +=
           '<div class="player-entry">' +
             '<div class="pe-header">' +
               '<span class="pe-name ' + (isMe ? 'me' : '') + ' ' + (isDead ? 'dead' : '') + '">' +
-                (isMe ? '► ' : '') + p.name + ' <span class="pe-class">' + classIcon + '</span></span>' +
+                (isMe ? '► ' : '') + displayName +
+                (defaultName && defaultName !== displayName ? '<span class="default-name">' + defaultName + '</span>' : '') +
+                ' <span class="pe-class">' + classIcon + '</span></span>' +
               '<span class="pe-hp">' + Math.max(0, p.hp) + ' / ' + p.maxHp + '</span>' +
             '</div>' +
             '<div class="pe-bar"><div class="pe-fill ' + fillClass + '" style="width:' + ppct + '%"></div></div>' +
