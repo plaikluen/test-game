@@ -67,3 +67,7 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Firebase auth export artifacts
+users-export.json
+firebase-users-*.json
