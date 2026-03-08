@@ -34,6 +34,13 @@
   }
   .google-btn:hover { background: #2a2a2a; }
   .google-btn img { width: 20px; height: 20px; }
+  .auth-input {
+    padding: 10px 16px; border: 1px solid #333; border-radius: 8px;
+    background: #1a1a1a; color: #eee; font-size: 0.95rem;
+    font-family: 'Noto Sans Thai', sans-serif; width: 260px;
+  }
+  .auth-input::placeholder { color: #555; }
+  .auth-row { display: flex; gap: 8px; }
 
   /* ===== SETUP ===== */
   #setupScreen h2 { font-size: 1.2rem; font-weight: 700; }
@@ -232,11 +239,13 @@
 <!-- 1) LOGIN -->
 <div class="screen active" id="loginScreen">
   <h1>⚔ Boss Fight — Multiplayer</h1>
-  <div class="sub">อุอิอ้า</div>
-  <button class="google-btn" onclick="googleLogin()">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
-    เข้าสู่ระบบด้วย Google
-  </button>
+  <div class="sub">เข้าสู่ระบบด้วยรหัสผู้เล่น 6 หลัก + รหัสผ่าน</div>
+  <input type="text" class="auth-input" id="loginPlayerId" placeholder="รหัสผู้เล่น 6 หลัก" maxlength="6" inputmode="numeric" autocomplete="username">
+  <input type="password" class="auth-input" id="loginPassword" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
+  <div class="auth-row">
+    <button class="google-btn" onclick="emailLogin()">เข้าสู่ระบบ</button>
+    <button class="google-btn" onclick="registerWithEmail()">สมัครสมาชิก</button>
+  </div>
   <div class="sub" id="loginStatus"></div>
 </div>
 
@@ -319,6 +328,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
 <script>
   const firebaseConfig = {
@@ -334,7 +344,8 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
   const auth = firebase.auth();
-  const googleProvider = new firebase.auth.GoogleAuthProvider();
+  const fns = firebase.app().functions('asia-southeast1');
+  const registerPlayerFn = fns.httpsCallable('registerPlayer');
 
   // ===== CONFIG =====
   const BOSS_MAX_HP = 2000;
@@ -364,19 +375,62 @@
     if (el) el.classList.add('active');
   }
 
-  // ===== 1) GOOGLE LOGIN =====
-  function googleLogin() {
+  // ===== 1) EMAIL/PASSWORD AUTH =====
+  function sanitizePlayerId(id) {
+    return String(id || '').replace(/\D/g, '').slice(0, 6);
+  }
+
+  function idToEmail(playerId) {
+    return playerId + '@player.local';
+  }
+
+  function getAuthForm() {
+    return {
+      playerId: sanitizePlayerId(document.getElementById('loginPlayerId').value),
+      password: document.getElementById('loginPassword').value
+    };
+  }
+
+  function emailLogin() {
+    var form = getAuthForm();
+    if (!/^\d{6}$/.test(form.playerId) || !form.password) {
+      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
+      return;
+    }
     document.getElementById('loginStatus').textContent = 'กำลังเข้าสู่ระบบ...';
-    auth.signInWithPopup(googleProvider).catch(function(err) {
+    auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(err) {
       document.getElementById('loginStatus').textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + err.message;
+    });
+  }
+
+  function registerWithEmail() {
+    var form = getAuthForm();
+    if (!/^\d{6}$/.test(form.playerId) || !form.password) {
+      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
+      return;
+    }
+    if (form.password.length < 6) {
+      document.getElementById('loginStatus').textContent = 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัว';
+      return;
+    }
+    document.getElementById('loginStatus').textContent = 'กำลังสมัครสมาชิกครั้งแรก...';
+    registerPlayerFn({ playerId: form.playerId, password: form.password }).then(function() {
+      return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password);
+    }).catch(function(err) {
+      var msg = err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
+      document.getElementById('loginStatus').textContent = 'สมัครสมาชิกไม่สำเร็จ: ' + msg;
     });
   }
 
   auth.onAuthStateChanged(function(user) {
     if (user) {
       myId = user.uid;
-      document.getElementById('setupEmail').textContent = user.email;
+      var email = user.email || '';
+      var label = email.endsWith('@player.local') ? ('ID: ' + email.replace('@player.local', '')) : email;
+      document.getElementById('setupEmail').textContent = label || 'ไม่ทราบผู้ใช้';
       showScreen('setupScreen');
+    } else {
+      showScreen('loginScreen');
     }
   });
 
