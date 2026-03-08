@@ -400,6 +400,20 @@
     if (registerBtn) registerBtn.disabled = busy;
   }
 
+  function mapAuthError(err) {
+    var code = err && err.code ? err.code : '';
+    if (code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') {
+      return 'เลขนี้มีบัญชีแล้ว แต่รหัสผ่านไม่ถูกต้อง';
+    }
+    if (code === 'auth/user-disabled') {
+      return 'บัญชีนี้ถูกปิดใช้งาน';
+    }
+    if (code === 'auth/too-many-requests') {
+      return 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่';
+    }
+    return err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
+  }
+
   function emailLogin() {
     if (authBusy) return;
     var form = getAuthForm();
@@ -410,7 +424,7 @@
     document.getElementById('loginStatus').textContent = 'กำลังเข้าสู่ระบบ...';
     setAuthBusy(true);
     auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(err) {
-      document.getElementById('loginStatus').textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + err.message;
+      document.getElementById('loginStatus').textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + mapAuthError(err);
     }).finally(function() {
       setAuthBusy(false);
     });
@@ -432,11 +446,11 @@
     registerPlayerFn({ playerId: form.playerId, password: form.password }).then(function() {
       return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password);
     }).catch(function(err) {
-      var msg = err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
+      var msg = mapAuthError(err);
       if (msg.indexOf('ID already used') !== -1) {
         document.getElementById('loginStatus').textContent = 'เลขนี้เคยสมัครแล้ว กำลังเข้าสู่ระบบ...';
         return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(loginErr) {
-          var loginMsg = loginErr && loginErr.message ? loginErr.message : 'ไม่ทราบสาเหตุ';
+          var loginMsg = mapAuthError(loginErr);
           document.getElementById('loginStatus').textContent = 'เลขนี้ถูกใช้แล้ว กรุณากดเข้าสู่ระบบ: ' + loginMsg;
         });
       }
