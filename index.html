@@ -241,10 +241,8 @@
   <h1>⚔ Boss Fight — Multiplayer</h1>
   <div class="sub">เข้าสู่ระบบด้วยรหัสผู้เล่น 6 หลัก + รหัสผ่าน</div>
   <input type="text" class="auth-input" id="loginPlayerId" placeholder="รหัสผู้เล่น 6 หลัก" maxlength="6" inputmode="numeric" autocomplete="username">
-  <input type="password" class="auth-input" id="loginPassword" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)" autocomplete="current-password">
   <div class="auth-row">
     <button class="google-btn" id="loginBtn" onclick="emailLogin()">เข้าสู่ระบบ</button>
-    <button class="google-btn" id="registerBtn" onclick="registerWithEmail()">สมัครสมาชิก</button>
   </div>
   <div class="sub" id="loginStatus"></div>
 </div>
@@ -386,11 +384,15 @@
     return playerId + '@player.local';
   }
 
-  function getAuthForm() {
-    return {
-      playerId: sanitizePlayerId(document.getElementById('loginPlayerId').value),
-      password: document.getElementById('loginPassword').value
-    };
+  async function getAuthForm() {
+    const playerId = sanitizePlayerId(document.getElementById('loginPlayerId').value);
+    // ดึง password จาก allowedPlayerIds
+    let password = '';
+    try {
+      const snap = await db.ref('allowedPlayerIds/' + playerId + '/password').get();
+      if (snap.exists()) password = snap.val();
+    } catch (e) {}
+    return { playerId, password };
   }
 
   function setAuthBusy(busy) {
@@ -418,11 +420,11 @@
     return err && err.message ? err.message : 'ไม่ทราบสาเหตุ';
   }
 
-  function emailLogin() {
+  async function emailLogin() {
     if (authBusy) return;
-    var form = getAuthForm();
+    var form = await getAuthForm();
     if (!/^\d{6}$/.test(form.playerId) || !form.password) {
-      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
+      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักให้ถูกต้อง';
       return;
     }
     document.getElementById('loginStatus').textContent = 'กำลังเข้าสู่ระบบ...';
@@ -434,35 +436,7 @@
     });
   }
 
-  function registerWithEmail() {
-    if (authBusy) return;
-    var form = getAuthForm();
-    if (!/^\d{6}$/.test(form.playerId) || !form.password) {
-      document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักและรหัสผ่านก่อน';
-      return;
-    }
-    if (form.password.length < 6) {
-      document.getElementById('loginStatus').textContent = 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัว';
-      return;
-    }
-    document.getElementById('loginStatus').textContent = 'กำลังสมัครสมาชิกครั้งแรก...';
-    setAuthBusy(true);
-    registerPlayerFn({ playerId: form.playerId, password: form.password }).then(function() {
-      return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password);
-    }).catch(function(err) {
-      var msg = mapAuthError(err);
-      if (msg.indexOf('ID already used') !== -1) {
-        document.getElementById('loginStatus').textContent = 'เลขนี้เคยสมัครแล้ว กำลังเข้าสู่ระบบ...';
-        return auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(loginErr) {
-          var loginMsg = mapAuthError(loginErr);
-          document.getElementById('loginStatus').textContent = 'เลขนี้ถูกใช้แล้ว กรุณากดเข้าสู่ระบบ: ' + loginMsg;
-        });
-      }
-      document.getElementById('loginStatus').textContent = 'สมัครสมาชิกไม่สำเร็จ: ' + msg;
-    }).finally(function() {
-      setAuthBusy(false);
-    });
-  }
+
 
   auth.onAuthStateChanged(function(user) {
     if (user) {

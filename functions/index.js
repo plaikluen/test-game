@@ -96,13 +96,9 @@ exports.registerPlayer = onCall(async (req) => {
 	});
 	const data = req.data || {};
 	const playerId = String(data.playerId || "").trim();
-	const password = String(data.password || "");
 
 	if (!/^\d{6}$/.test(playerId)) {
 		throw new HttpsError("invalid-argument", "playerId must be 6 digits");
-	}
-	if (password.length < 6) {
-		throw new HttpsError("invalid-argument", "password must be at least 6 chars");
 	}
 
 	const allowRef = admin.database().ref("allowedPlayerIds/" + playerId);
@@ -114,6 +110,9 @@ exports.registerPlayer = onCall(async (req) => {
 	}
 	if (current.used === true) {
 		throw new HttpsError("permission-denied", "ID already used");
+	}
+	if (!current.password || current.password.length < 6) {
+		throw new HttpsError("invalid-argument", "Password not set for this ID");
 	}
 	const usedRef = allowRef.child("used");
 	const usedAtRef = allowRef.child("usedAt");
@@ -144,7 +143,7 @@ exports.registerPlayer = onCall(async (req) => {
 		created = await admin.auth().createUser({
 			uid: playerId,
 			email,
-			password,
+			password: current.password,
 		});
 	} catch (err) {
 		await allowRef.update({used: false, usedAt: null});

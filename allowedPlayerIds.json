@@ -1,12 +1,12 @@
 {
-  "680001": { "used": false, "name": "Mint" },
-  "680002": { "used": false, "name": "Far" },
-  "680003": { "used": false, "name": "Tan" },
-  "680004": { "used": false, "name": "Dai" },
-  "680005": { "used": false, "name": "Ribbin" },
-  "680006": { "used": false, "name": "Gun" },
-  "680007": { "used": false, "name": "Noey" },
-  "680008": { "used": false, "name": "Henry" },
-  "680009": { "used": false, "name": "Ivy" },
-  "680010": { "used": false, "name": "Jack" }
+  "680001": { "uid": "680001", "password": "passMint", "used": false, "name": "Mint" },
+  "680002": { "uid": "680002", "password": "passFar", "used": false, "name": "Far" },
+  "680003": { "uid": "680003", "password": "passTan", "used": false, "name": "Tan" },
+  "680004": { "uid": "680004", "password": "passDai", "used": false, "name": "Dai" },
+  "680005": { "uid": "680005", "password": "passRibbin", "used": false, "name": "Ribbin" },
+  "680006": { "uid": "680006", "password": "passGun", "used": false, "name": "Gun" },
+  "680007": { "uid": "680007", "password": "passNoey", "used": false, "name": "Noey" },
+  "680008": { "uid": "680008", "password": "passHenry", "used": false, "name": "Henry" },
+  "680009": { "uid": "680009", "password": "passIvy", "used": false, "name": "Ivy" },
+  "680010": { "uid": "680010", "password": "passJack", "used": false, "name": "Jack" }
 }
