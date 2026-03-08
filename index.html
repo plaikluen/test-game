@@ -386,12 +386,13 @@
 
   async function getAuthForm() {
     const playerId = sanitizePlayerId(document.getElementById('loginPlayerId').value);
-    // ดึง password จาก allowedPlayerIds
+    // ดึง password จาก allowedPlayerIds (force server fetch)
     let password = '';
     try {
-      const snap = await db.ref('allowedPlayerIds/' + playerId + '/password').get();
+      const snap = await db.ref('allowedPlayerIds/' + playerId + '/password').get({forceServer: true});
       if (snap.exists()) password = snap.val();
-    } catch (e) {}
+      console.log('[DEBUG] password for', playerId, '=', password);
+    } catch (e) { console.error('[DEBUG] get password error', e); }
     return { playerId, password };
   }
 
@@ -423,10 +424,16 @@
   async function emailLogin() {
     if (authBusy) return;
     var form = await getAuthForm();
-    if (!/^\d{6}$/.test(form.playerId) || !form.password) {
+    if (!/^\d{6}$/.test(form.playerId)) {
       document.getElementById('loginStatus').textContent = 'กรอกรหัสผู้เล่น 6 หลักให้ถูกต้อง';
       return;
     }
+    if (!form.password) {
+      document.getElementById('loginStatus').textContent = '[DEBUG] ไม่พบ password ใน allowedPlayerIds สำหรับไอดีนี้';
+      console.error('[DEBUG] No password found for', form.playerId);
+      return;
+    }
+    console.log('[DEBUG] login with', form.playerId, form.password);
     document.getElementById('loginStatus').textContent = 'กำลังเข้าสู่ระบบ...';
     setAuthBusy(true);
     auth.signInWithEmailAndPassword(idToEmail(form.playerId), form.password).catch(function(err) {
