@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Reset Player</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-functions-compat.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    .hidden { display: none; }
+    table { border-collapse: collapse; margin-top: 1em; }
+    th, td { border: 1px solid #ccc; padding: 0.5em 1em; }
+    button { padding: 0.3em 1em; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h2>Admin: Reset Player Accounts</h2>
+  <div id="login-section">
+    <input id="email" type="email" placeholder="Admin Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login as Admin</button>
+    <span id="login-error" class="error"></span>
+  </div>
+  <div id="admin-section" class="hidden">
+    <h3>Player List</h3>
+    <table id="player-table">
+      <thead><tr><th>Player ID</th><th>Name</th><th>Action</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button onclick="logout()">Logout</button>
+  </div>
+  <script>
+    // === CONFIG ===
+    const firebaseConfig = {
+      apiKey: "AIzaSyC9wj2fQXhLJf2LAN-A2DZn2ph7gdCQHs",
+      authDomain: "boss-fight-8806a.firebaseapp.com",
+      projectId: "boss-fight-8806a",
+      appId: "1:198605626220:web:bdd28ff95e9b440ab7149"
+    };
+    const adminSecret = "changeme1234";
+    // Player list (hardcoded, or fetch from server/db)
+    const players = [
+      { id: "680001", name: "Alice" },
+      { id: "680002", name: "Bob" },
+      { id: "680003", name: "Charlie" },
+      { id: "680004", name: "David" },
+      { id: "680005", name: "Eve" },
+      { id: "680006", name: "Frank" },
+      { id: "680007", name: "Grace" },
+      { id: "680008", name: "Henry" },
+      { id: "680009", name: "Ivy" },
+      { id: "680010", name: "Jack" }
+    ];
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const functions = firebase.app().functions('asia-southeast1');
+    // UI
+    function showAdmin() {
+      document.getElementById('login-section').classList.add('hidden');
+      document.getElementById('admin-section').classList.remove('hidden');
+      renderTable();
+    }
+    function showLogin() {
+      document.getElementById('login-section').classList.remove('hidden');
+      document.getElementById('admin-section').classList.add('hidden');
+    }
+    function renderTable() {
+      const tbody = document.querySelector('#player-table tbody');
+      tbody.innerHTML = '';
+      players.forEach(player => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${player.id}</td><td>${player.name}</td>
+          <td><button onclick="resetPlayer('${player.id}', this)">Reset</button></td>
+          <td class="status"></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    // Auth
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      document.getElementById('login-error').textContent = '';
+      auth.signInWithEmailAndPassword(email, password)
+        .then(() => showAdmin())
+        .catch(e => {
+          document.getElementById('login-error').textContent = e.message;
+        });
+    }
+    function logout() {
+      auth.signOut().then(showLogin);
+    }
+    // Reset Player
+    function resetPlayer(playerId, btn) {
+      btn.disabled = true;
+      btn.textContent = 'Resetting...';
+      const resetFn = functions.httpsCallable('resetPlayer');
+      resetFn({ playerId, adminSecret })
+        .then(res => {
+          btn.parentElement.nextElementSibling.innerHTML = '<span class="success">Success</span>';
+          btn.textContent = 'Reset';
+          btn.disabled = false;
+        })
+        .catch(e => {
+          btn.parentElement.nextElementSibling.innerHTML = '<span class="error">' + e.message + '</span>';
+          btn.textContent = 'Reset';
+          btn.disabled = false;
+        });
+    }
+    // Auth state
+    auth.onAuthStateChanged(user => {
+      if (user) showAdmin();
+      else showLogin();
+    });
+  </script>
+</body>
+</html>
