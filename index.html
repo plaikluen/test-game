@@ -403,7 +403,7 @@
   function mapAuthError(err) {
     var code = err && err.code ? err.code : '';
     if (code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') {
-      return 'เลขนี้มีบัญชีแล้ว แต่รหัสผ่านไม่ถูกต้อง';
+      return 'เลขหรือรหัสผ่านไม่ถูกต้อง (ถ้ายังไม่เคยสมัคร ให้กดสมัครสมาชิกก่อน)';
     }
     if (code === 'auth/user-disabled') {
       return 'บัญชีนี้ถูกปิดใช้งาน';
