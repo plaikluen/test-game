@@ -1,3 +1,5 @@
+# Firebase Admin SDK private key
+serviceAccountKey.json
 # Logs
 logs
 *.log
